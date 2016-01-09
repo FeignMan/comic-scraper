@@ -2,6 +2,10 @@ var async = require("async");
 var fs = require("fs");
 var request = require("request");
 
+/* ToDo:
+- Add html parsing to support hellocomic.com
+*/
+
 var filePath = "./pages/page03.jpg";
 var url = "http://hellocomic.com/img/magazines/injustice-gods-among-us-year-two/injustice-gods-among-us-year-two-18/Injustice-%20Gods%20Among%20Us%20-%20Year%20Two%20(2014-)%20018-003.jpg";
 var googleUrl = "https://www.google.com/images/srpr/logo3w.png";
