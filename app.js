@@ -1,61 +1,36 @@
 var async = require("async");
 var fs = require("fs");
 var request = require("request");
+var download = require("./download.js");
 
 /* ToDo:
 - Add html parsing to support hellocomic.com
+- 
 */
 
 var filePath = "./pages/page03.jpg";
 var url = "http://hellocomic.com/img/magazines/injustice-gods-among-us-year-two/injustice-gods-among-us-year-two-18/Injustice-%20Gods%20Among%20Us%20-%20Year%20Two%20(2014-)%20018-003.jpg";
-var googleUrl = "https://www.google.com/images/srpr/logo3w.png";
+var testUrl = "https://www.google.com/images/srpr/logo3w.png";
 
-function download(options, callback) {
-	var fileStream;
-	async.waterfall([
-		//Make the HEAD request
-		function(callback) {
-			console.log("Making the HEAD request...");
-			request.head(options.url, function(err, res, body) {
-				if (err) return callback("HEAD Request Error: " + err);
-				console.log("Headers:", res.headers);
-				return callback(null);
-			});
-		},
-		//	Create file stream
-		function(callback) {
-			fileStream = fs.createWriteStream(options.path, {
-				flags: "w+"
-			});
-			return callback(null, fileStream);
-		},
-		//	Make the GET request
-		function(fileStream, callback) {
-			console.log("\nMaking the GET request...");
-			var req = request.get(options.url);
-			req.on("response", function(response) {
-				if (response.statusCode === 200) {
-					console.log("GET Headers:", response.headers);
-					// req.pipe(fileStream);
-				}
-			});
-			req.on("error", function(err) {
-				fileStream.end();
-				return callback("GET Error:" + err);
-			});
-			req.on("end", function() {
-				fileStream.end( );
-				return callback(null, "Success!");
-			});
-			req.pipe(fileStream);
-		}
-	], callback);
+function getAPage() {
+ 	var comicUrl = "http://hellocomic.com/injustice-gods-among-us-year-two/c18/p1";
+	request(comicUrl, function(err, resp, body) {
+		if (err)
+			return console.log("Could not reach hellocomic.com -", err);
+
+		if (resp.statusCode !== 200)
+			return console.log("HTTP Error:", response.statusCode);
+
+		fs.writeFileSync("HTML.html", body, { flag: "w+"});
+		console.log("getAPage successful!");
+	});
 }
 
-download({
-	url: url,
-	path: filePath
-}, function(err, result) {
-	if (err) return console.log("Download Error:", err);
+function printSampleHTML() {
+	var testHtml = fs.readFileSync("HTML.html", {flag: "r"});
+	console.log(testHtml.toString());
+}
+
+download({ url: url, path: filePath	}, function(err, result) {
 	console.log("\nDownload", result);
 });
