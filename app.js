@@ -12,6 +12,7 @@ var download = require("./download.js");
 
 var testHtml = "hellocomic.html";
 var comicUrl = "http://hellocomic.com/injustice-gods-among-us-year-two/c1/p1";
+if (process.argv.length > 2) comicUrl = process.argv[2];
 
 function printSampleHTML() {
 	var testHtml = fs.readFileSync(testHtml, {flag: "r"});
@@ -72,7 +73,7 @@ function getInfo(params, callback) {
 						var url = $(children[j]).attr("value");
 						info.seriesUrls[name] = url;
 						if ($(children[j]).attr("value").indexOf(urlPrefix) > -1)
-							info.name = name;
+							info.issueName = name;
 					}
 				}
 			}
@@ -84,7 +85,7 @@ function getInfo(params, callback) {
 }
 
 function setupOutDir(info, callback) {
-	var dirPath = "./output/" + info.name;
+	var dirPath = "./output/" + info.issueName;
 	info.outPath = dirPath + "/";
 	fs.readdir(dirPath, function(err, files){
 		if (err) {
@@ -92,7 +93,7 @@ function setupOutDir(info, callback) {
 			console.log("Info: Creating folder:", dirPath);
 			fs.mkdirSync(dirPath);
 		}
-		console.log("Info: Output directory setup complete");
+		console.log("Info: Output directory setup complete\n");
 		callback(null, info);
 	});
 }
@@ -112,18 +113,14 @@ function downloadComicPage(url, filePath, callback) {
 	});
 }
 
-
-
-//	Main
-if (!module.parent) {
-
-	getHtml(comicUrl, function(err, html) {
-		console.log("Info: Received HTML:", comicUrl);
+function downloadIssue(url, callback) {
+	getHtml(url, function(err, html) {
+		console.log("Info: Received HTML:", url);
 		if (err) return console.log(err);
 		var info;
 		async.waterfall([
 			//	Get comic info
-			async.apply(getInfo, { html: html, inputUrl: comicUrl }),
+			async.apply(getInfo, { html: html, inputUrl: url }),
 			
 			//	Save info globally
 			function (_info, callback) {
@@ -139,27 +136,43 @@ if (!module.parent) {
 				async.series(Object.keys(info.issueUrls).map(function(curr) {
 					return function(callback) {
 						var path = info.outPath + curr;
+						console.log("Downloading:", info.issueName, ", Page -", curr);
 						downloadComicPage(info.issueUrls[curr], path, function(err) {
-							if (err) return callback("Warning: Download failed: " + curr + " - " + err);
-							console.log("Info: Download completed -", curr);
+							if (err) return callback("Download failed: " + curr + " - " + err);
+							console.log("Info: Download completed -", curr, "\n");
 							return callback(null, curr);
 						});
 					};
 				}),
 				function(err, results) {
 					if (err) return callback(err);
-					return callback(null);
+					return callback(null, info);
 				});
 			}
-		], function (err, result) {
-			if (err) return console.log(err);
-			console.log("Info: Downloading Complete:", info.name);
-			console.log("\nAlso available in this series...");
-			Object.keys(info.seriesUrls).forEach(function (issue) {
-				console.log(issue);
-			});
-		});
+		], callback);
 	});
 }
 
+//	Main
+if (!module.parent) {
 
+	var downloadMode = "issue";
+	if (process.argv.length > 3) downloadMode = process.argv[3];
+
+	switch (downloadMode) {
+		case "series":
+			console.log("Series download is still WiP!");
+			break;
+		default:
+			downloadIssue(comicUrl, function(err, info) {
+				if (err) return console.log("Error:", err);
+
+				console.log("Info: Downloading Complete:", info.issueName);
+				console.log("\nAlso available in this series...");
+				Object.keys(info.seriesUrls).forEach(function (issue) {
+					console.log(issue);
+				});
+			});
+			break;
+	}
+}
