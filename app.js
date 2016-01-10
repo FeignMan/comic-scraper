@@ -7,13 +7,14 @@ var download = require("./download.js");
 /* ToDo:
 - Command Line url input
 - Support to download whole comic series
+- Prevent redundant download. Match content-length against existing file's size
 */
 
-var testPath = "./pages/page03.jpg";
-var comicUrl = "http://hellocomic.com/injustice-gods-among-us-year-two/c18/p17";
+var testHtml = "hellocomic.html";
+var comicUrl = "http://hellocomic.com/injustice-gods-among-us-year-two/c1/p1";
 
 function printSampleHTML() {
-	var testHtml = fs.readFileSync("HTML.html", {flag: "r"});
+	var testHtml = fs.readFileSync(testHtml, {flag: "r"});
 	console.log(testHtml.toString());
 }
 
@@ -44,19 +45,13 @@ function getInfo(params, callback) {
 				}
 			}
 		},
-		//	Get Name
-		function (info, callback) {
-			var coverIssue = $("div.coverIssue")[0];
-			info.name = $(coverIssue).children("a").children("img").attr("alt");
-			callback(null, info);
-		},
-		//	Get URLs for other all issues
+		//	Get URLs for other all pages
 		function (info, callback) {
 			var urlPrefix = params.inputUrl.slice(0, params.inputUrl.lastIndexOf("/") + 2);
 			info.issueUrls = {};
 			for (var i = 0; i < $("select").length; i++ ) {
 				var current = $("select")[i];
-				if ($(current).attr("id") && $(current).attr("id") === "e3") {
+				if ($(current).attr("id") && $(current).attr("id") === "e1") {
 					var children = $(current).children("option");
 					for (var j = 0; j < children.length; j++)
 						info.issueUrls["p" + (j+1).toString()] = (urlPrefix + $(children[j]).text());
@@ -64,16 +59,21 @@ function getInfo(params, callback) {
 			}
 			return callback(null, info);
 		},
-		//	Get URLs for other all issues
+		//	Get URLs for other all issues and info.name of the current issue
 		function (info, callback) {
+			info.seriesUrls = {};
 			var urlPrefix = params.inputUrl.slice(0, params.inputUrl.lastIndexOf("/") + 2);
-			info.issueUrls = {};
 			for (var i = 0; i < $("select").length; i++ ) {
 				var current = $("select")[i];
-				if ($(current).attr("id") && $(current).attr("id") === "e3") {
+				if ($(current).attr("id") && $(current).attr("id") === "e2") {
 					var children = $(current).children("option");
-					for (var j = 0; j < children.length; j++)
-						info.issueUrls["p" + (j+1).toString()] = (urlPrefix + $(children[j]).text());
+					for (var j = 0; j < children.length; j++) {
+						var name = $(children[j]).text().trim();
+						var url = $(children[j]).attr("value");
+						info.seriesUrls[name] = url;
+						if ($(children[j]).attr("value").indexOf(urlPrefix) > -1)
+							info.name = name;
+					}
 				}
 			}
 			return callback(null, info);
@@ -89,6 +89,7 @@ function setupOutDir(info, callback) {
 	fs.readdir(dirPath, function(err, files){
 		if (err) {
 			console.log("Warning: setupOutDir: " + err);
+			console.log("Info: Creating folder:", dirPath);
 			fs.mkdirSync(dirPath);
 		}
 		console.log("Info: Output directory setup complete");
@@ -117,7 +118,7 @@ function downloadComicPage(url, filePath, callback) {
 if (!module.parent) {
 
 	getHtml(comicUrl, function(err, html) {
-		console.log("Received HTML");
+		console.log("Info: Received HTML:", comicUrl);
 		if (err) return console.log(err);
 		var info;
 		async.waterfall([
@@ -139,8 +140,8 @@ if (!module.parent) {
 					return function(callback) {
 						var path = info.outPath + curr;
 						downloadComicPage(info.issueUrls[curr], path, function(err) {
-							if (err) return callback("Download failed: " + curr + " - " + err);
-							console.log("Download completed -", curr);
+							if (err) return callback("Warning: Download failed: " + curr + " - " + err);
+							console.log("Info: Download completed -", curr);
 							return callback(null, curr);
 						});
 					};
@@ -152,7 +153,11 @@ if (!module.parent) {
 			}
 		], function (err, result) {
 			if (err) return console.log(err);
-			console.log("Waterfall complete");
+			console.log("Info: Downloading Complete:", info.name);
+			console.log("\nAlso available in this series...");
+			Object.keys(info.seriesUrls).forEach(function (issue) {
+				console.log(issue);
+			});
 		});
 	});
 }
