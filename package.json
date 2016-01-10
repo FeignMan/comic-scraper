@@ -1,5 +1,5 @@
 {
-  "name": "scraper",
+  "name": "comic-scraper",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -10,5 +10,15 @@
     "cheerio": "^0.19.0",
     "htmlparser2": "^3.9.0",
     "request": "^2.6.0"
+  },
+  "repository":
+  {
+    "type" : "git",
+    "url" : "https://github.com/FeignMan/comic-scraper.git"
+  },
+  "author":
+  {
+    "name" : "Ishan Aditya",
+    "email" : "ishanaditya@gmail.com"
   }
 }
