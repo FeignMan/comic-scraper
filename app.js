@@ -5,8 +5,8 @@ var request = require("request");
 var download = require("./download.js");
 
 /* ToDo:
-- Add html parsing to support hellocomic.com
-- 
+- Command Line url input
+- Support to download whole comic series
 */
 
 var testPath = "./pages/page03.jpg";
@@ -49,6 +49,20 @@ function getInfo(params, callback) {
 			var coverIssue = $("div.coverIssue")[0];
 			info.name = $(coverIssue).children("a").children("img").attr("alt");
 			callback(null, info);
+		},
+		//	Get URLs for other all issues
+		function (info, callback) {
+			var urlPrefix = params.inputUrl.slice(0, params.inputUrl.lastIndexOf("/") + 2);
+			info.issueUrls = {};
+			for (var i = 0; i < $("select").length; i++ ) {
+				var current = $("select")[i];
+				if ($(current).attr("id") && $(current).attr("id") === "e3") {
+					var children = $(current).children("option");
+					for (var j = 0; j < children.length; j++)
+						info.issueUrls["p" + (j+1).toString()] = (urlPrefix + $(children[j]).text());
+				}
+			}
+			return callback(null, info);
 		},
 		//	Get URLs for other all issues
 		function (info, callback) {
