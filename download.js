@@ -20,7 +20,7 @@ module.exports = function (options, callback) {
 					case "image/jpeg": ext = ".jpg"; break;
 					case "image/png": ext = ".png"; break;
 				}
-				console.log("\n\nContect-Length -", res.headers["content-length"]);
+				console.log("Info: Contect-Length -", res.headers["content-length"]);
 				return callback(null);
 			});
 		},
@@ -33,7 +33,6 @@ module.exports = function (options, callback) {
 		},
 		//	Make the GET request
 		function(fileStream, callback) {
-			console.log("Downloading", options.url);
 			var req = request.get(options.url);
 			req.on("error", function(err) {
 				fileStream.end();
