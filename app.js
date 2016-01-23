@@ -55,7 +55,7 @@ function getInfo(params, callback) {
 				var current = $("select")[i];
 				if ($(current).attr("id") && $(current).attr("id") === "e1") {
 					var children = $(current).children("option");
-					for (var j = 0; j < 1/*children.length*/; j++)
+					for (var j = 0; j < children.length; j++)
 						info.issueUrls["p" + (j+1).toString()] = (urlPrefix + $(children[j]).text());
 				}
 			}
