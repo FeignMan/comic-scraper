@@ -4,11 +4,10 @@ var fs = require("fs");
 var request = require("request");
 var download = require("./download.js");
 var assert = require("assert");
+var util = require("util");
+var logger = require("bunyan").createLogger({name: "scraper"});
 
 /* ToDo:
-- Command Line url input
-- Support to download whole comic series
-- Prevent redundant download. Match content-length against existing file's size
 */
 
 var testHtml = "hellocomic.html";
@@ -56,7 +55,7 @@ function getInfo(params, callback) {
 				var current = $("select")[i];
 				if ($(current).attr("id") && $(current).attr("id") === "e1") {
 					var children = $(current).children("option");
-					for (var j = 0; j < children.length; j++)
+					for (var j = 0; j < 1/*children.length*/; j++)
 						info.issueUrls["p" + (j+1).toString()] = (urlPrefix + $(children[j]).text());
 				}
 			}
@@ -91,11 +90,11 @@ function setupOutDir(info, callback) {
 	info.outPath = dirPath + "/";
 	fs.readdir(dirPath, function(err, files){
 		if (err) {
-			console.log("Warning: setupOutDir: " + err);
-			console.log("Info: Creating folder:", dirPath);
+			logger.warn("setupOutDir: " + err);
+			logger.info("Creating folder:", dirPath);
 			fs.mkdirSync(dirPath);
 		}
-		console.log("Info: Output directory setup complete\n");
+		logger.info("Info: Output directory setup complete\n");
 		callback(null, info);
 	});
 }
@@ -108,10 +107,14 @@ function downloadComicPage(url, filePath, callback) {
 		var coverIssue = $("div.coverIssue")[0];
 		imageUrl = $(coverIssue).children("a").children("img").attr("src");
 
-		download({ url: imageUrl, path: filePath	}, function(err, result) {
-			if (err) return callback("Download Error: " + err);
-			return callback(null);
-		});
+		download({ 
+				url: imageUrl,
+				path: filePath,
+				checkIfExists: true
+			}, function(err, result) {
+				if (err) return callback("Download Error: " + err);
+				return callback(null);
+			});
 	});
 }
 
@@ -137,19 +140,19 @@ function downloadIssue(url, callback) {
 				async.series(Object.keys(info.issueUrls).map(function(curr) {
 					return function(callback) {
 						var path = info.outPath + curr;
-						console.log("Downloading:", info.issueName, ", Page -", curr);
+						logger.info("Downloading:", info.issueName, ", Page -", curr);
 						
 						downloadComicPage(info.issueUrls[curr], path, function(err) {
 							if (err) return callback("Download failed: " + curr + " - " + err);
 
-							console.log("Info: Download completed -", curr, "\n");
+							logger.info("File completed -", curr);
 							return callback(null, curr);
 						});
 					};
 				}),
 				function(err, results) {
 					if (err) return callback(err);
-					console.log("Info: Completed downloading issue:", info.issueName, "\n");
+					logger.info("Completed downloading issue:", info.issueName);
 					return callback(null, info);
 				});
 			}
@@ -162,18 +165,18 @@ function downloadSeries(url, callback) {
 		if (err) return callback(err);
 
 		getInfo({ html: html, inputUrl: url }, function(err, info) {
-			console.log("Info: Url entered for issue:", info.issueName);
-			console.log("Info: Issues found for this series:\n", Object.keys(info.seriesUrls));
+			logger.info("Url entered for issue:", info.issueName);
+			logger.info("Issues found for this series:\n", Object.keys(info.seriesUrls));
 			
 			async.series(Object.keys(info.seriesUrls).map(function(curr) {
 				
 				return function(callback) {
-					
-					console.log("\nDownloading Issue:", curr, "\n");
+
+					logger.info("\nDownloading Issue:", curr);
 					downloadIssue(info.seriesUrls[curr], function(err, info) {
 						if(err) {
-							console.log("Error:", err);
-							console.log("Info: Skipping", curr);
+							logger.error("Error:", err);
+							logger.info("Skipping", curr);
 							return callback(null, {
 								name: curr,
 								downloadStatus: false
@@ -204,32 +207,40 @@ if (!module.parent) {
 		case "series":
 			downloadSeries(comicUrl, function(err, completedIssues) {
 				if (!err) {
-					var result = "Info: Series downloaded Successfully!";
-					console.log("Info: Issues successfully downloaded:\n", 
+					var result = "Series downloaded Successfully!";
+					logger.info("Issues successfully downloaded:\n", 
 						completedIssues.forEach(function(curr) {
-							if (curr.downloadStatus) console.log(curr.name, "Downloaded successfully!");
+							if (curr.downloadStatus) logger.info(curr.name, "Downloaded successfully!");
 							else {
-								console.log(curr.name, "FAILED or INCOMPLETE!");
-								result = "Error: One or more issues might be incomplete or missing!";
+								logger.error(curr.name, "FAILED or INCOMPLETE!");
+								result = "One or more issues might be incomplete or missing!";
 							}
 					}));
-					console.log(result);
+					logger.info(result);
 				}
 				else
-					console.log("Error:", err);
+					logger.error("Error:", err);
 			});
 			break;
-		default:
+		case "issue":
 			downloadIssue(comicUrl, function(err, info) {
 				if (!err) {
-					console.log("\nAlso available in this series...");
+					logger.info("\nAlso available in this series...");
 					Object.keys(info.seriesUrls).forEach(function (issue) {
 						console.log(issue);
 					});
 				}
 				else
-					console.log("Error:", err);
+					logger.error("Error:", err);
 			});
+			break;
+		case "dev":
+			var path = "./output/Darth Vader - #01/p1.jpg";
+			var stat = null;
+			if (fs.existsSync(path))
+				stat = fs.statSync(path);
+			console.log(stat);
+			console.log("File Size:", stat ? stat.size: null);
 			break;
 	}
 }
