@@ -90,7 +90,6 @@ function setupOutDir(info, callback) {
 	info.outPath = dirPath + "/";
 	fs.readdir(dirPath, function(err, files){
 		if (err) {
-			logger.warn("setupOutDir: " + err);
 			logger.info("Creating folder:", dirPath);
 			fs.mkdirSync(dirPath);
 		}
