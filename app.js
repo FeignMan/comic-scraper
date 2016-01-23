@@ -3,6 +3,7 @@ var cheerio = require("cheerio");
 var fs = require("fs");
 var request = require("request");
 var download = require("./download.js");
+var assert = require("assert");
 
 /* ToDo:
 - Command Line url input
@@ -27,6 +28,7 @@ function getHtml(url, callback) {
 		if (resp.statusCode !== 200)
 			return callback("getHtml: " + "HTTP Error: " + resp.statusCode);
 
+	//	console.log("Debug: Received HTML:", url);
 		callback(null, body.toString());
 	});
 }
@@ -115,8 +117,7 @@ function downloadComicPage(url, filePath, callback) {
 
 function downloadIssue(url, callback) {
 	getHtml(url, function(err, html) {
-		console.log("Info: Received HTML:", url);
-		if (err) return console.log(err);
+		if (err) return callback(err);
 		var info;
 		async.waterfall([
 			//	Get comic info
@@ -137,8 +138,10 @@ function downloadIssue(url, callback) {
 					return function(callback) {
 						var path = info.outPath + curr;
 						console.log("Downloading:", info.issueName, ", Page -", curr);
+						
 						downloadComicPage(info.issueUrls[curr], path, function(err) {
 							if (err) return callback("Download failed: " + curr + " - " + err);
+
 							console.log("Info: Download completed -", curr, "\n");
 							return callback(null, curr);
 						});
@@ -146,10 +149,48 @@ function downloadIssue(url, callback) {
 				}),
 				function(err, results) {
 					if (err) return callback(err);
+					console.log("Info: Completed downloading issue:", info.issueName, "\n");
 					return callback(null, info);
 				});
 			}
 		], callback);
+	});
+}
+
+function downloadSeries(url, callback) {
+	getHtml(url, function(err, html) {
+		if (err) return callback(err);
+
+		getInfo({ html: html, inputUrl: url }, function(err, info) {
+			console.log("Info: Url entered for issue:", info.issueName);
+			console.log("Info: Issues found for this series:\n", Object.keys(info.seriesUrls));
+			
+			async.series(Object.keys(info.seriesUrls).map(function(curr) {
+				
+				return function(callback) {
+					
+					console.log("\nDownloading Issue:", curr, "\n");
+					downloadIssue(info.seriesUrls[curr], function(err, info) {
+						if(err) {
+							console.log("Error:", err);
+							console.log("Info: Skipping", curr);
+							return callback(null, {
+								name: curr,
+								downloadStatus: false
+							});
+						}
+						return callback(null, {
+								name: curr,
+								downloadStatus: true
+							});
+					});
+				};
+			}),
+			function(err, downloadResults) {
+				assert(!err, "An error should never reach here");
+				return callback(null, downloadResults);
+			});
+		});
 	});
 }
 
@@ -161,17 +202,33 @@ if (!module.parent) {
 
 	switch (downloadMode) {
 		case "series":
-			console.log("Series download is still WiP!");
+			downloadSeries(comicUrl, function(err, completedIssues) {
+				if (!err) {
+					var result = "Info: Series downloaded Successfully!";
+					console.log("Info: Issues successfully downloaded:\n", 
+						completedIssues.forEach(function(curr) {
+							if (curr.downloadStatus) console.log(curr.name, "Downloaded successfully!");
+							else {
+								console.log(curr.name, "FAILED or INCOMPLETE!");
+								result = "Error: One or more issues might be incomplete or missing!";
+							}
+					}));
+					console.log(result);
+				}
+				else
+					console.log("Error:", err);
+			});
 			break;
 		default:
 			downloadIssue(comicUrl, function(err, info) {
-				if (err) return console.log("Error:", err);
-
-				console.log("Info: Downloading Complete:", info.issueName);
-				console.log("\nAlso available in this series...");
-				Object.keys(info.seriesUrls).forEach(function (issue) {
-					console.log(issue);
-				});
+				if (!err) {
+					console.log("\nAlso available in this series...");
+					Object.keys(info.seriesUrls).forEach(function (issue) {
+						console.log(issue);
+					});
+				}
+				else
+					console.log("Error:", err);
 			});
 			break;
 	}

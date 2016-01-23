@@ -14,7 +14,7 @@ module.exports = function (options, callback) {
 	async.waterfall([
 		//Make the HEAD request
 		function(callback) {
-			request.head(options.url, function(err, res, body) {
+			request.head({url: options.url, timeout: 10000}, function(err, res, body) {
 				if (err) return callback("HEAD Request Error: " + err);
 				switch (res.headers["content-type"]) {
 					case "image/jpeg": ext = ".jpg"; break;
@@ -33,15 +33,19 @@ module.exports = function (options, callback) {
 		},
 		//	Make the GET request
 		function(fileStream, callback) {
-			var req = request.get(options.url);
+			var req = request.get({
+				url: options.url,
+				timeout: 10 * 1000	//	10 second timeout to start receiving header content body
+			});
 			req.on("error", function(err) {
 				fileStream.end();
 				return callback("GET Error:" + err);
 			});
 			req.on("end", function() {
 				fileStream.end( );
-				return callback(null, "Success!");
+				return callback(null);
 			});
+			console.log("starting download...");
 			req.pipe(fileStream);
 		}
 	], callback);
